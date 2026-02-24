@@ -1,0 +1,71 @@
+{
+  "benchmark": "PNP vs A2A",
+  "protocol": "PNP/1.0",
+  "results": [
+    {
+      "name": "A2A (HTTP+JSON)",
+      "avg_latency_ms": 2563.763,
+      "p50_latency_ms": 1860.697,
+      "p95_latency_ms": 7364.049,
+      "p99_latency_ms": 9807.362,
+      "throughput_msgs_sec": 0.39,
+      "avg_request_bytes": 317.9,
+      "avg_response_bytes": 875.4,
+      "avg_serialization_us": 0,
+      "errors": 0,
+      "iterations": 50
+    },
+    {
+      "name": "PNP (HTTP+JSON)",
+      "avg_latency_ms": 1271.217,
+      "p50_latency_ms": 1246.524,
+      "p95_latency_ms": 1487.33,
+      "p99_latency_ms": 1548.448,
+      "throughput_msgs_sec": 0.79,
+      "avg_request_bytes": 140.9,
+      "avg_response_bytes": 690.8,
+      "avg_serialization_us": 32.77,
+      "errors": 0,
+      "iterations": 50
+    },
+    {
+      "name": "PNP (HTTP+MsgPack)",
+      "avg_latency_ms": 1879.383,
+      "p50_latency_ms": 1400.806,
+      "p95_latency_ms": 5340.834,
+      "p99_latency_ms": 8669.913,
+      "throughput_msgs_sec": 0.53,
+      "avg_request_bytes": 107.9,
+      "avg_response_bytes": 586,
+      "avg_serialization_us": 68.56,
+      "errors": 0,
+      "iterations": 50
+    },
+    {
+      "name": "PNP (Direct+JSON)",
+      "avg_latency_ms": 123.151,
+      "p50_latency_ms": 99.586,
+      "p95_latency_ms": 235.529,
+      "p99_latency_ms": 444.787,
+      "throughput_msgs_sec": 8.12,
+      "avg_request_bytes": 140.9,
+      "avg_response_bytes": 690.6,
+      "avg_serialization_us": 23.83,
+      "errors": 0,
+      "iterations": 50
+    },
+    {
+      "name": "PNP (Direct+MsgPack)",
+      "avg_latency_ms": 108.294,
+      "p50_latency_ms": 103.357,
+      "p95_latency_ms": 156.1,
+      "p99_latency_ms": 210.76,
+      "throughput_msgs_sec": 9.23,
+      "avg_request_bytes": 107.9,
+      "avg_response_bytes": 586,
+      "avg_serialization_us": 57.68,
+      "errors": 0,
+      "iterations": 50
+    }
+  ]
+}

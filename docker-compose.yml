@@ -1,0 +1,77 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nutrition_user
+      POSTGRES_PASSWORD: nutrition_pass
+      POSTGRES_DB: nutrition_tracker
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nutrition_user -d nutrition_tracker"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  app:
+    build: .
+    restart: unless-stopped
+    expose:
+      - "8000"
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      DATABASE_URL: postgresql://nutrition_user:nutrition_pass@db:5432/nutrition_tracker
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: nutrition_tracker
+      DB_USER: nutrition_user
+      DB_PASSWORD: nutrition_pass
+      JSON_LOGS: "true"
+    volumes:
+      - app_logs:/app/logs
+    depends_on:
+      db:
+        condition: service_healthy
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./static:/usr/share/nginx/static:ro
+    depends_on:
+      - app
+
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      PGHOST: db
+      PGPORT: "5432"
+      PGUSER: nutrition_user
+      PGPASSWORD: nutrition_pass
+      PGDATABASE: nutrition_tracker
+    volumes:
+      - ./backups:/backups
+      - ./backup.sh:/backup.sh:ro
+    entrypoint: ["/bin/sh", "-c", "chmod +x /backup.sh && crond -f -l 2 -L /dev/stdout"]
+    configs:
+      - source: backup_cron
+        target: /var/spool/cron/crontabs/root
+    depends_on:
+      db:
+        condition: service_healthy
+
+configs:
+  backup_cron:
+    content: |
+      0 3 * * * /backup.sh >> /backups/backup.log 2>&1
+
+volumes:
+  pgdata:
+  app_logs:

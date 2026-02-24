@@ -1,0 +1,31 @@
+# Smart Nutrition Tracker — Dependencies
+# Install with: pip install -r requirements.txt
+
+# ── Web Framework ──
+fastapi==0.115.0
+uvicorn==0.30.0
+
+# ── A2A Communication ──
+httpx==0.27.0           # HTTP client for agent-to-agent calls
+pydantic==2.9.0         # Data validation (message models)
+
+# ── Database ──
+psycopg2-binary==2.9.9  # PostgreSQL driver (binary = no compilation needed)
+
+# ── LLM ──
+openai==1.45.0          # Gemini API (OpenAI-compatible client)
+
+# ── ML Model (for food classifier agent) ──
+# tensorflow==2.16.0    # Uncomment when ready to deploy ML model
+# pillow==10.4.0        # Image processing
+# numpy==1.26.4         # Array operations
+
+# ── PNP Protocol (custom protocol) ──
+msgpack==1.0.7          # Binary serialization for PNP protocol
+
+# ── Performance ──
+psutil==6.0.0           # Memory tracking
+
+# ── Utilities ──
+python-dotenv==1.0.0    # Load .env files (optional)
+python-multipart==0.0.9 # File uploads (food images)

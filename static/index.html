@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Nutrition Tracker</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header class="app-header">
+        <div class="header-left">
+            <h1 class="app-title">Smart Nutrition Tracker</h1>
+        </div>
+        <div class="header-center">
+            <nav class="main-nav">
+                <button class="nav-btn active" data-page="chat">Chat</button>
+                <button class="nav-btn" data-page="dashboard">Dashboard</button>
+                <button class="nav-btn" data-page="meals">Meals</button>
+                <button class="nav-btn" data-page="profile">Profile</button>
+                <button class="nav-btn" data-page="benchmark">Benchmark</button>
+            </nav>
+        </div>
+        <div class="header-right">
+            <div class="protocol-toggle">
+                <span class="toggle-label">Protocol:</span>
+                <button class="toggle-btn active" data-protocol="a2a">A2A</button>
+                <button class="toggle-btn" data-protocol="pnp">PNP</button>
+                <button class="toggle-btn" data-protocol="toon">TOON</button>
+            </div>
+            <div class="user-selector">
+                <label>User:</label>
+                <select id="user-select">
+                    <option value="1">User 1</option>
+                </select>
+            </div>
+        </div>
+    </header>
+
+    <main class="app-main">
+
+        <!-- CHAT -->
+        <section id="page-chat" class="page active">
+            <div class="chat-container">
+                <div class="chat-messages" id="chat-messages"></div>
+                <div class="chat-input-area">
+                    <input type="text" id="chat-input" placeholder="Tell me what you ate, ask for a meal plan, or get health advice..." autocomplete="off">
+                    <button id="chat-send" class="btn-primary">Send</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- DASHBOARD -->
+        <section id="page-dashboard" class="page">
+            <div class="dashboard-grid">
+                <div class="card">
+                    <h2>Agent Status</h2>
+                    <div id="agent-status-list"></div>
+                </div>
+                <div class="card">
+                    <h2>Today's Nutrition</h2>
+                    <div id="nutrition-bars"></div>
+                </div>
+                <div class="card">
+                    <h2>Recent Meals</h2>
+                    <div id="recent-meals-list"></div>
+                </div>
+                <div class="card">
+                    <h2>System Metrics</h2>
+                    <div id="system-metrics"></div>
+                </div>
+                <div class="card card-full-width">
+                    <h2>Agent Communication</h2>
+                    <div class="trace-controls">
+                        <button id="traces-refresh" class="btn-secondary">Refresh Traces</button>
+                        <span class="trace-hint">Click a trace to see the agent communication flow</span>
+                    </div>
+                    <div id="trace-list"></div>
+                    <div id="trace-flow" style="display:none"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- MEAL HISTORY -->
+        <section id="page-meals" class="page">
+            <div class="meals-controls">
+                <select id="meal-type-filter">
+                    <option value="">All Types</option>
+                    <option value="breakfast">Breakfast</option>
+                    <option value="lunch">Lunch</option>
+                    <option value="dinner">Dinner</option>
+                    <option value="snack">Snack</option>
+                </select>
+                <button id="meals-refresh" class="btn-secondary">Refresh</button>
+            </div>
+            <div id="meal-edit-form" class="card meal-edit-card" style="display:none">
+                <h2 id="meal-edit-title">Edit Meal</h2>
+                <form id="meal-edit" class="meal-edit-grid">
+                    <input type="hidden" name="meal_id" value="">
+                    <div class="form-row"><label>Food Name</label><input name="food_name" type="text" required></div>
+                    <div class="form-row">
+                        <label>Meal Type</label>
+                        <select name="meal_type">
+                            <option value="breakfast">Breakfast</option>
+                            <option value="lunch">Lunch</option>
+                            <option value="dinner">Dinner</option>
+                            <option value="snack">Snack</option>
+                        </select>
+                    </div>
+                    <div class="form-row"><label>Calories</label><input name="calories" type="number" step="0.1"></div>
+                    <div class="form-row"><label>Protein (g)</label><input name="protein_g" type="number" step="0.1"></div>
+                    <div class="form-row"><label>Carbs (g)</label><input name="carbs_g" type="number" step="0.1"></div>
+                    <div class="form-row"><label>Fat (g)</label><input name="fat_g" type="number" step="0.1"></div>
+                    <div class="form-buttons">
+                        <button type="submit" class="btn-primary">Save</button>
+                        <button type="button" class="btn-secondary" id="meal-edit-cancel">Cancel</button>
+                    </div>
+                </form>
+            </div>
+            <div class="table-container">
+                <table id="meals-table">
+                    <thead>
+                        <tr>
+                            <th data-sort="meal_date">Date</th>
+                            <th data-sort="meal_type">Type</th>
+                            <th data-sort="food_name">Food</th>
+                            <th data-sort="calories">Calories</th>
+                            <th data-sort="protein_g">Protein (g)</th>
+                            <th data-sort="carbs_g">Carbs (g)</th>
+                            <th data-sort="fat_g">Fat (g)</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="meals-tbody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- PROFILE -->
+        <section id="page-profile" class="page">
+            <div class="profile-grid">
+                <div class="card">
+                    <h2>All Users</h2>
+                    <div id="users-list"><p class="empty-state">Loading...</p></div>
+                </div>
+                <div class="card">
+                    <h2 id="profile-form-title">Create New User</h2>
+                    <form id="profile-form">
+                        <input type="hidden" name="edit_user_id" value="">
+                        <div class="form-row"><label>Username</label><input name="username" type="text" required></div>
+                        <div class="form-row"><label>Age</label><input name="age" type="number" min="1" max="120"></div>
+                        <div class="form-row"><label>Weight (kg)</label><input name="weight_kg" type="number" step="0.1"></div>
+                        <div class="form-row"><label>Height (cm)</label><input name="height_cm" type="number" step="0.1"></div>
+                        <div class="form-row">
+                            <label>Gender</label>
+                            <select name="gender">
+                                <option value="">--</option>
+                                <option value="male">Male</option>
+                                <option value="female">Female</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <label>Activity Level</label>
+                            <select name="activity_level">
+                                <option value="sedentary">Sedentary</option>
+                                <option value="light">Light</option>
+                                <option value="moderate" selected>Moderate</option>
+                                <option value="active">Active</option>
+                                <option value="very_active">Very Active</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <label>Goal</label>
+                            <select name="goal">
+                                <option value="lose_weight">Lose Weight</option>
+                                <option value="maintain" selected>Maintain</option>
+                                <option value="gain_muscle">Gain Muscle</option>
+                            </select>
+                        </div>
+                        <div class="form-row"><label>Daily Calorie Target</label><input name="daily_cal_target" type="number" value="2000"></div>
+                        <div class="form-row"><label>Dietary Preferences (comma-separated)</label><input name="dietary_prefs" type="text" placeholder="vegetarian, keto..."></div>
+                        <div class="form-row"><label>Allergies (comma-separated)</label><input name="allergies" type="text" placeholder="nuts, dairy..."></div>
+                        <div class="form-buttons">
+                            <button type="submit" class="btn-primary" id="profile-submit-btn">Create User</button>
+                            <button type="button" class="btn-secondary" id="profile-cancel-btn" style="display:none">Cancel</button>
+                        </div>
+                        <div id="profile-form-msg"></div>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- BENCHMARK -->
+        <section id="page-benchmark" class="page">
+            <div class="benchmark-controls">
+                <button id="benchmark-load" class="btn-primary">Load Benchmark Results</button>
+                <span style="font-size:12px;color:var(--text-muted);margin-left:12px;">Run <code>python benchmark.py --export</code> first to generate results</span>
+            </div>
+            <div id="benchmark-results"></div>
+        </section>
+
+    </main>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
