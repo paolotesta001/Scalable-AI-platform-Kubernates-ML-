@@ -1,0 +1,181 @@
+# docker-compose.microservices.yml
+# Run with: docker compose -f docker-compose.microservices.yml up --build
+#
+# Each agent runs as its own service with its own port.
+# Agents communicate via HTTP (PNP_DEFAULT_MODE=http).
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nutrition_user
+      POSTGRES_PASSWORD: nutrition_pass
+      POSTGRES_DB: nutrition_tracker
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nutrition_user -d nutrition_tracker"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  orchestrator:
+    build: .
+    restart: unless-stopped
+    entrypoint: []
+    command: ["bash", "-c", "python database.py && uvicorn main:app --host 0.0.0.0 --port 8000"]
+    expose:
+      - "8000"
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      DATABASE_URL: postgresql://nutrition_user:nutrition_pass@db:5432/nutrition_tracker
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: nutrition_tracker
+      DB_USER: nutrition_user
+      DB_PASSWORD: nutrition_pass
+      DEPLOY_MODE: microservice
+      PNP_DEFAULT_MODE: http
+      APP_HOST: "0.0.0.0"
+      APP_PORT: "8000"
+      ORCHESTRATOR_URL: http://orchestrator:8000
+      FOOD_LOGGER_URL: http://food-logger:8001
+      MEAL_PLANNER_URL: http://meal-planner:8002
+      HEALTH_ADVISOR_URL: http://health-advisor:8003
+      DB_WRITER_URL: http://db-writer:8004
+      JSON_LOGS: "true"
+    volumes:
+      - app_logs:/app/logs
+    depends_on:
+      db:
+        condition: service_healthy
+
+  food-logger:
+    build: .
+    restart: unless-stopped
+    entrypoint: []
+    command: ["uvicorn", "agent_food_logger:app", "--host", "0.0.0.0", "--port", "8001"]
+    expose:
+      - "8001"
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      DATABASE_URL: postgresql://nutrition_user:nutrition_pass@db:5432/nutrition_tracker
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: nutrition_tracker
+      DB_USER: nutrition_user
+      DB_PASSWORD: nutrition_pass
+      DEPLOY_MODE: microservice
+      PNP_DEFAULT_MODE: http
+      APP_PORT: "8001"
+      ORCHESTRATOR_URL: http://orchestrator:8000
+      FOOD_LOGGER_URL: http://food-logger:8001
+      MEAL_PLANNER_URL: http://meal-planner:8002
+      HEALTH_ADVISOR_URL: http://health-advisor:8003
+      DB_WRITER_URL: http://db-writer:8004
+      JSON_LOGS: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  meal-planner:
+    build: .
+    restart: unless-stopped
+    entrypoint: []
+    command: ["uvicorn", "agent_meal_planner:app", "--host", "0.0.0.0", "--port", "8002"]
+    expose:
+      - "8002"
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      DATABASE_URL: postgresql://nutrition_user:nutrition_pass@db:5432/nutrition_tracker
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: nutrition_tracker
+      DB_USER: nutrition_user
+      DB_PASSWORD: nutrition_pass
+      DEPLOY_MODE: microservice
+      PNP_DEFAULT_MODE: http
+      APP_PORT: "8002"
+      ORCHESTRATOR_URL: http://orchestrator:8000
+      FOOD_LOGGER_URL: http://food-logger:8001
+      MEAL_PLANNER_URL: http://meal-planner:8002
+      HEALTH_ADVISOR_URL: http://health-advisor:8003
+      DB_WRITER_URL: http://db-writer:8004
+      JSON_LOGS: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  health-advisor:
+    build: .
+    restart: unless-stopped
+    entrypoint: []
+    command: ["uvicorn", "agent_health_advisor:app", "--host", "0.0.0.0", "--port", "8003"]
+    expose:
+      - "8003"
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      DATABASE_URL: postgresql://nutrition_user:nutrition_pass@db:5432/nutrition_tracker
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: nutrition_tracker
+      DB_USER: nutrition_user
+      DB_PASSWORD: nutrition_pass
+      DEPLOY_MODE: microservice
+      PNP_DEFAULT_MODE: http
+      APP_PORT: "8003"
+      ORCHESTRATOR_URL: http://orchestrator:8000
+      FOOD_LOGGER_URL: http://food-logger:8001
+      MEAL_PLANNER_URL: http://meal-planner:8002
+      HEALTH_ADVISOR_URL: http://health-advisor:8003
+      DB_WRITER_URL: http://db-writer:8004
+      JSON_LOGS: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db-writer:
+    build: .
+    restart: unless-stopped
+    entrypoint: []
+    command: ["uvicorn", "agent_db_writer:app", "--host", "0.0.0.0", "--port", "8004"]
+    expose:
+      - "8004"
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      DATABASE_URL: postgresql://nutrition_user:nutrition_pass@db:5432/nutrition_tracker
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: nutrition_tracker
+      DB_USER: nutrition_user
+      DB_PASSWORD: nutrition_pass
+      DEPLOY_MODE: microservice
+      PNP_DEFAULT_MODE: http
+      APP_PORT: "8004"
+      ORCHESTRATOR_URL: http://orchestrator:8000
+      FOOD_LOGGER_URL: http://food-logger:8001
+      MEAL_PLANNER_URL: http://meal-planner:8002
+      HEALTH_ADVISOR_URL: http://health-advisor:8003
+      DB_WRITER_URL: http://db-writer:8004
+      JSON_LOGS: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.microservices.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./static:/usr/share/nginx/static:ro
+    depends_on:
+      - orchestrator
+
+volumes:
+  pgdata:
+  app_logs:

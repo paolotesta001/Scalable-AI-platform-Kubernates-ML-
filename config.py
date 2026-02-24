@@ -15,7 +15,7 @@ PROJECT_NAME = "Smart Nutrition Tracker"
 PROJECT_VERSION = "1.0.0"
 PROTOCOL_VERSION = "A2A/1.0"
 PNP_PROTOCOL_VERSION = "PNP/1.0"
-PNP_DEFAULT_MODE = "direct"    # "direct" or "http"
+PNP_DEFAULT_MODE = os.getenv("PNP_DEFAULT_MODE", "direct")    # "direct" or "http"
 PNP_DEFAULT_FORMAT = "json"    # "json" or "msgpack"
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -46,57 +46,72 @@ DB_USER = os.getenv("DB_USER", "nutrition_user")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "nutrition_pass")
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# AGENT REGISTRY — All agents on single port (8000) via FastAPI mount
+# DEPLOYMENT MODE
 # ═══════════════════════════════════════════════════════════════════════════════
-# Architecture: single-port like ExVenture multi-agent project.
-# Orchestrator is the root app; agents are mounted under path prefixes.
-# Start with: uvicorn main:app --reload --port 8000
+# "monolith" = all agents on single port via FastAPI mount (local dev)
+# "microservice" = each agent is its own process/container (K8s / docker-compose)
 
-APP_PORT = 8000
-APP_HOST = "127.0.0.1"
+DEPLOY_MODE = os.getenv("DEPLOY_MODE", "monolith")
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# AGENT REGISTRY — Configurable URLs per agent
+# ═══════════════════════════════════════════════════════════════════════════════
+# Monolith: all agents on single port (8000) via FastAPI mount
+# Microservice: each agent on its own port, resolved by env var / K8s DNS
+
+APP_PORT = int(os.getenv("APP_PORT", "8000"))
+APP_HOST = os.getenv("APP_HOST", "0.0.0.0")
 APP_BASE = f"http://{APP_HOST}:{APP_PORT}"
+
+# Per-agent URLs — override with env vars for microservice / K8s mode
+ORCHESTRATOR_URL  = os.getenv("ORCHESTRATOR_URL",  APP_BASE)
+FOOD_LOGGER_URL   = os.getenv("FOOD_LOGGER_URL",   f"{APP_BASE}/food-logger")
+MEAL_PLANNER_URL  = os.getenv("MEAL_PLANNER_URL",  f"{APP_BASE}/meal-planner")
+HEALTH_ADVISOR_URL = os.getenv("HEALTH_ADVISOR_URL", f"{APP_BASE}/health-advisor")
+DB_WRITER_URL     = os.getenv("DB_WRITER_URL",     f"{APP_BASE}/db-writer")
+ML_MODEL_URL      = os.getenv("ML_MODEL_URL",      f"{APP_BASE}/ml-model")
 
 AGENTS = {
     "orchestrator": {
         "name": "Orchestrator",
         "emoji": "🤖",
         "path": "",
-        "url": APP_BASE,
+        "url": ORCHESTRATOR_URL,
         "description": "Routes queries to the right agent",
     },
     "food_logger": {
         "name": "Food Logger",
         "emoji": "📸",
         "path": "/food-logger",
-        "url": f"{APP_BASE}/food-logger",
+        "url": FOOD_LOGGER_URL,
         "description": "Identifies food, logs meals with calories/macros",
     },
     "meal_planner": {
         "name": "Meal Planner",
         "emoji": "🍽️",
         "path": "/meal-planner",
-        "url": f"{APP_BASE}/meal-planner",
+        "url": MEAL_PLANNER_URL,
         "description": "Creates personalized meal plans based on goals",
     },
     "health_advisor": {
         "name": "Health Advisor",
         "emoji": "💪",
         "path": "/health-advisor",
-        "url": f"{APP_BASE}/health-advisor",
+        "url": HEALTH_ADVISOR_URL,
         "description": "Health tips, progress tracking, nutrient alerts",
     },
     "db_writer": {
         "name": "DB Writer",
         "emoji": "🗄️",
         "path": "/db-writer",
-        "url": f"{APP_BASE}/db-writer",
+        "url": DB_WRITER_URL,
         "description": "Reads/writes nutrition data to PostgreSQL",
     },
     "ml_model": {
         "name": "ML Model",
         "emoji": "🧠",
         "path": "/ml-model",
-        "url": f"{APP_BASE}/ml-model",
+        "url": ML_MODEL_URL,
         "description": "Food image classifier → calories/macros estimation",
     },
 }

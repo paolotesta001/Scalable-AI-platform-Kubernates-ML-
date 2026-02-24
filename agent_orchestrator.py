@@ -27,8 +27,9 @@ from database import log_message as db_log_message
 
 from pnp_protocol import (
     PNPMessage, PNPType, PNPSerializer,
-    pnp_registry, create_request, create_reply, send_pnp,
+    pnp_registry, create_request, create_reply, send_pnp, resolve_pnp_target,
 )
+from config import PNP_DEFAULT_MODE
 from execution_log import generate_trace_id, log_execution
 from fastapi import Request, Response
 
@@ -451,16 +452,18 @@ def handle_message(msg: A2AMessage) -> A2AMessage:
 # ---------------------------------------------------------------------------
 
 def call_food_logger_pnp(query: str, cid: str, tracker: PerformanceTracker,
-                         user_id: int = 1, mode: str = "direct", fmt: str = "json",
+                         user_id: int = 1, mode: str = None, fmt: str = "json",
                          trace_id: str = None) -> str:
     """Call Food Logger via PNP protocol with retry."""
-    print(f"[PNP] -> Food Logger: {query[:80]}...")
+    mode = mode or PNP_DEFAULT_MODE
+    target = resolve_pnp_target("food_logger", mode)
+    print(f"[PNP] -> Food Logger ({mode}): {query[:80]}...")
 
     def _call():
         msg = create_request(query, "orchestrator", cid,
                              extra={"user_id": user_id, "_pnp_mode": mode, "_pnp_fmt": fmt})
         start = time.time()
-        resp = send_pnp("food_logger", msg, mode=mode, fmt=fmt)
+        resp = send_pnp(target, msg, mode=mode, fmt=fmt)
         duration = time.time() - start
         text = resp.p.get("text", "No food logged.")
         tracker.log_step("food_logger_agent", query, text, duration)
@@ -472,16 +475,18 @@ def call_food_logger_pnp(query: str, cid: str, tracker: PerformanceTracker,
 
 
 def call_meal_planner_pnp(query: str, cid: str, tracker: PerformanceTracker,
-                          user_id: int = 1, mode: str = "direct", fmt: str = "json",
+                          user_id: int = 1, mode: str = None, fmt: str = "json",
                           trace_id: str = None) -> str:
     """Call Meal Planner via PNP protocol with retry."""
-    print(f"[PNP] -> Meal Planner: {query[:80]}...")
+    mode = mode or PNP_DEFAULT_MODE
+    target = resolve_pnp_target("meal_planner", mode)
+    print(f"[PNP] -> Meal Planner ({mode}): {query[:80]}...")
 
     def _call():
         msg = create_request(query, "orchestrator", cid,
                              extra={"user_id": user_id, "_pnp_mode": mode, "_pnp_fmt": fmt})
         start = time.time()
-        resp = send_pnp("meal_planner", msg, mode=mode, fmt=fmt)
+        resp = send_pnp(target, msg, mode=mode, fmt=fmt)
         duration = time.time() - start
         text = resp.p.get("text", "No meal plan generated.")
         tracker.log_step("meal_planner_agent", query, text, duration)
@@ -493,16 +498,18 @@ def call_meal_planner_pnp(query: str, cid: str, tracker: PerformanceTracker,
 
 
 def call_health_advisor_pnp(query: str, cid: str, tracker: PerformanceTracker,
-                            user_id: int = 1, mode: str = "direct", fmt: str = "json",
+                            user_id: int = 1, mode: str = None, fmt: str = "json",
                             trace_id: str = None) -> str:
     """Call Health Advisor via PNP protocol with retry."""
-    print(f"[PNP] -> Health Advisor: {query[:80]}...")
+    mode = mode or PNP_DEFAULT_MODE
+    target = resolve_pnp_target("health_advisor", mode)
+    print(f"[PNP] -> Health Advisor ({mode}): {query[:80]}...")
 
     def _call():
         msg = create_request(query, "orchestrator", cid,
                              extra={"user_id": user_id, "_pnp_mode": mode, "_pnp_fmt": fmt})
         start = time.time()
-        resp = send_pnp("health_advisor", msg, mode=mode, fmt=fmt)
+        resp = send_pnp(target, msg, mode=mode, fmt=fmt)
         duration = time.time() - start
         text = resp.p.get("text", "No health advice generated.")
         tracker.log_step("health_advisor_agent", query, text, duration)
@@ -532,7 +539,7 @@ def handle_pnp(msg: PNPMessage) -> PNPMessage:
     user_id = msg.p.get("user_id", 1)
     provider = msg.p.get("model_provider", "gemini")
     model_name = msg.p.get("model_name")
-    pnp_mode = msg.p.get("_pnp_mode", "direct")
+    pnp_mode = msg.p.get("_pnp_mode", PNP_DEFAULT_MODE)
     pnp_fmt = msg.p.get("_pnp_fmt", "json")
 
     tracker = PerformanceTracker()

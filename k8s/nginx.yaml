@@ -1,0 +1,109 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+  namespace: nutrition-tracker
+data:
+  default.conf: |
+    upstream orchestrator_server {
+        server orchestrator:8000;
+    }
+
+    limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;
+
+    server {
+        listen 80;
+        server_name _;
+
+        client_max_body_size 10M;
+
+        gzip on;
+        gzip_types text/plain text/css application/json application/javascript text/xml;
+        gzip_min_length 256;
+
+        location /static/ {
+            alias /usr/share/nginx/static/;
+            expires 7d;
+            add_header Cache-Control "public, immutable";
+        }
+
+        location = /health {
+            proxy_pass http://orchestrator_server;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+        }
+
+        location / {
+            limit_req zone=api burst=20 nodelay;
+
+            proxy_pass http://orchestrator_server;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+
+            proxy_read_timeout 120s;
+            proxy_connect_timeout 10s;
+        }
+    }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+  namespace: nutrition-tracker
+spec:
+  type: LoadBalancer
+  selector:
+    app: nginx
+  ports:
+    - port: 80
+      targetPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+  namespace: nutrition-tracker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: nginx-config

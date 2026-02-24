@@ -17,6 +17,9 @@ COPY . .
 # Make entrypoint executable
 RUN chmod +x entrypoint.sh
 
-EXPOSE 8000
+# Expose ports: 8000 (orchestrator), 8001-8004 (agents in microservice mode)
+EXPOSE 8000 8001 8002 8003 8004
 
+# Default entrypoint: monolith mode via entrypoint.sh
+# Override CMD in docker-compose / K8s for microservice mode
 ENTRYPOINT ["./entrypoint.sh"]

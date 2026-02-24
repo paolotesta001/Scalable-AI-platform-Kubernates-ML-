@@ -25,8 +25,9 @@ from execution_log import log_execution
 
 from pnp_protocol import (
     PNPMessage, PNPType, PNPSerializer,
-    pnp_registry, create_request, create_reply, send_pnp,
+    pnp_registry, create_request, create_reply, send_pnp, resolve_pnp_target,
 )
+from config import PNP_DEFAULT_MODE
 from fastapi import Request, Response
 
 
@@ -205,19 +206,20 @@ def handle_pnp(msg: PNPMessage) -> PNPMessage:
     user_id = msg.p.get("user_id", 1)
     provider = msg.p.get("model_provider", "gemini")
     model_name = msg.p.get("model_name")
-    pnp_mode = msg.p.get("_pnp_mode", "direct")
+    pnp_mode = msg.p.get("_pnp_mode", PNP_DEFAULT_MODE)
     pnp_fmt = msg.p.get("_pnp_fmt", "json")
     trace_id = msg.p.get("trace_id", "")
 
     tracker = PerformanceTracker()
 
     # Step 1: Fetch user profile from DB Writer via PNP
+    db_target = resolve_pnp_target("db_writer", pnp_mode)
     profile_req = create_request(
         "Get user profile", "meal-planner", msg.cid,
         extra={"action": "get_user", "data": {"user_id": user_id}},
     )
     start = time.time()
-    profile_resp = send_pnp("db_writer", profile_req, mode=pnp_mode, fmt=pnp_fmt)
+    profile_resp = send_pnp(db_target, profile_req, mode=pnp_mode, fmt=pnp_fmt)
     db_dur = (time.time() - start) * 1000
     tracker.log_step("db_get_user", str(user_id), str(profile_resp.p), db_dur / 1000)
     user_profile = profile_resp.p.get("result", {})

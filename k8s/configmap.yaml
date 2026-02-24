@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nutrition-config
+  namespace: nutrition-tracker
+data:
+  # Database
+  DB_HOST: "postgres"
+  DB_PORT: "5432"
+  DB_NAME: "nutrition_tracker"
+  DB_USER: "nutrition_user"
+  DATABASE_URL: "postgresql://nutrition_user:nutrition_pass@postgres:5432/nutrition_tracker"
+
+  # Deployment
+  DEPLOY_MODE: "microservice"
+  PNP_DEFAULT_MODE: "http"
+  APP_HOST: "0.0.0.0"
+  JSON_LOGS: "true"
+
+  # Service URLs (K8s DNS: <service-name>.<namespace>.svc.cluster.local)
+  ORCHESTRATOR_URL: "http://orchestrator:8000"
+  FOOD_LOGGER_URL: "http://food-logger:8001"
+  MEAL_PLANNER_URL: "http://meal-planner:8002"
+  HEALTH_ADVISOR_URL: "http://health-advisor:8003"
+  DB_WRITER_URL: "http://db-writer:8004"

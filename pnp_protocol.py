@@ -350,6 +350,19 @@ def create_event(
     )
 
 
+def resolve_pnp_target(agent_id: str, mode: str) -> str:
+    """
+    Resolve PNP target based on mode.
+
+    Direct mode: returns agent_id (for in-process registry lookup).
+    HTTP mode: returns the agent's base URL (for network call).
+    """
+    if mode == "direct":
+        return agent_id
+    from config import get_agent_url
+    return get_agent_url(agent_id)
+
+
 def send_pnp(
     target: str,
     message: PNPMessage,

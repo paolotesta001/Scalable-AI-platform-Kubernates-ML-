@@ -25,8 +25,9 @@ from execution_log import log_execution
 
 from pnp_protocol import (
     PNPMessage, PNPType, PNPSerializer,
-    pnp_registry, create_request, create_reply, send_pnp,
+    pnp_registry, create_request, create_reply, send_pnp, resolve_pnp_target,
 )
+from config import PNP_DEFAULT_MODE
 from fastapi import Request, Response
 
 
@@ -402,12 +403,13 @@ def _process_food_log(text: str, user_id: int, conversation_id: str,
         }
 
         if pnp_mode:
+            db_target = resolve_pnp_target("db_writer", pnp_mode)
             db_req = create_request(
                 "Log a meal", "food-logger", conversation_id,
                 extra={"action": "log_meal", "data": meal_data},
             )
             start = time.time()
-            db_resp = send_pnp("db_writer", db_req, mode=pnp_mode, fmt=pnp_fmt or "json")
+            db_resp = send_pnp(db_target, db_req, mode=pnp_mode, fmt=pnp_fmt or "json")
             tracker.log_step("db_log_meal", str(meal_data), str(db_resp.p), time.time() - start)
         else:
             db_query = create_query(
@@ -458,7 +460,7 @@ def handle_pnp(msg: PNPMessage) -> PNPMessage:
     user_id = msg.p.get("user_id", 1)
     provider = msg.p.get("model_provider", "gemini")
     model_name = msg.p.get("model_name")
-    pnp_mode = msg.p.get("_pnp_mode", "direct")
+    pnp_mode = msg.p.get("_pnp_mode", PNP_DEFAULT_MODE)
     pnp_fmt = msg.p.get("_pnp_fmt", "json")
     trace_id = msg.p.get("trace_id", "")
 

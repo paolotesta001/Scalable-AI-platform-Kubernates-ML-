@@ -1,0 +1,44 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  namespace: nutrition-tracker
+spec:
+  schedule: "0 3 * * *"  # Daily at 3:00 AM
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: backup
+              image: postgres:16-alpine
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+                  BACKUP_FILE="/backups/nutrition_tracker_${TIMESTAMP}.sql.gz"
+                  echo "[BACKUP] Starting backup at $(date)"
+                  pg_dump -h postgres -U nutrition_user -d nutrition_tracker | gzip > "${BACKUP_FILE}"
+                  echo "[BACKUP] Created: ${BACKUP_FILE} ($(du -h ${BACKUP_FILE} | cut -f1))"
+                  # Cleanup: keep only last 7 days
+                  find /backups -name "*.sql.gz" -mtime +7 -delete
+                  echo "[BACKUP] Cleanup complete. Remaining backups:"
+                  ls -lh /backups/*.sql.gz 2>/dev/null || echo "  (none)"
+              env:
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: nutrition-secrets
+                      key: DB_PASSWORD
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+                limits:
+                  cpu: 200m
+                  memory: 256Mi

@@ -9,3 +9,8 @@ benchmark_results.json
 .git
 .gitignore
 *.md
+k8s
+tests
+test_*.py
+*_test.py
+benchmark_*.json
