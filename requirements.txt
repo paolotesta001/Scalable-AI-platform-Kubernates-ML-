@@ -15,10 +15,11 @@ psycopg2-binary==2.9.9  # PostgreSQL driver (binary = no compilation needed)
 # ── LLM ──
 openai==1.45.0          # Gemini API (OpenAI-compatible client)
 
-# ── ML Model (for food classifier agent) ──
-# tensorflow==2.16.0    # Uncomment when ready to deploy ML model
-# pillow==10.4.0        # Image processing
-# numpy==1.26.4         # Array operations
+# ── ML Model (food image classifier — MobileNetV2 on Food-101) ──
+torch>=2.1.0            # PyTorch (CPU version for containers)
+torchvision>=0.16.0     # Image transforms + pretrained models
+pillow>=10.0.0          # Image processing
+numpy>=1.26.0           # Array operations
 
 # ── PNP Protocol (custom protocol) ──
 msgpack==1.0.7          # Binary serialization for PNP protocol

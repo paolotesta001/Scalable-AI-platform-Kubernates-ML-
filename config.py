@@ -247,9 +247,12 @@ OPEN_FOOD_FACTS_URL = "https://world.openfoodfacts.org/api/v2"
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Path to the trained model file (exported from Google Colab)
-ML_MODEL_PATH = os.getenv("ML_MODEL_PATH", "models/food_classifier.h5")
+# PyTorch: food_classifier.pth (weights) or food_classifier_traced.pt (TorchScript)
+ML_MODEL_PATH = os.getenv("ML_MODEL_PATH", "models/food_classifier.pth")
+ML_TRACED_MODEL_PATH = os.getenv("ML_TRACED_MODEL_PATH", "models/food_classifier_traced.pt")
+ML_CLASSES_PATH = os.getenv("ML_CLASSES_PATH", "models/food_classes.json")
 ML_MODEL_CLASSES = 101  # Food-101 dataset has 101 categories
-ML_IMAGE_SIZE = (224, 224)  # Input size for the model
+ML_IMAGE_SIZE = (224, 224)  # Input size for MobileNetV2
 ML_CONFIDENCE_THRESHOLD = 0.5  # Minimum confidence to accept prediction
 
 # ═══════════════════════════════════════════════════════════════════════════════

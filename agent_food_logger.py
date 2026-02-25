@@ -9,9 +9,10 @@ Or via main.py (mounted at /food-logger on port 8000).
 
 import json
 import time
+import base64
 from typing import Dict
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 
 from a2a_protocol import (
     A2AMessage, Sender, fix_default_ids,
@@ -29,6 +30,7 @@ from pnp_protocol import (
 )
 from config import PNP_DEFAULT_MODE
 from fastapi import Request, Response
+from ml_food_classifier import get_classifier
 
 
 app = FastAPI(
@@ -488,9 +490,108 @@ async def pnp_endpoint(request: Request) -> Response:
 pnp_registry.register("food_logger", handle_pnp)
 
 
+# ---------------------------------------------------------------------------
+# Image Classification Endpoint
+# ---------------------------------------------------------------------------
+
+@app.post("/classify-image")
+async def classify_image_endpoint(file: UploadFile = File(...)):
+    """Classify a food image using the ML model. Returns top-5 predictions."""
+    classifier = get_classifier()
+    if not classifier.is_loaded:
+        raise HTTPException(status_code=503, detail="ML model not loaded")
+
+    image_bytes = await file.read()
+    result = classifier.classify(image_bytes, top_k=5)
+    return result
+
+
+def _classify_image_from_payload(payload: dict) -> dict:
+    """Classify image from protocol payload (base64-encoded)."""
+    classifier = get_classifier()
+    if not classifier.is_loaded:
+        return {"error": True, "text": "ML model not loaded"}
+
+    image_b64 = payload.get("image_base64", "")
+    if not image_b64:
+        return {"error": True, "text": "Missing 'image_base64' in payload"}
+
+    top_k = payload.get("top_k", 5)
+    result = classifier.classify_base64(image_b64, top_k=top_k)
+    return result
+
+
+# ---------------------------------------------------------------------------
+# A2A Image Classification Handler
+# ---------------------------------------------------------------------------
+
+@app.post("/a2a/classify", response_model=A2AMessage)
+def handle_classify_a2a(msg: A2AMessage) -> A2AMessage:
+    """A2A endpoint for image classification."""
+    msg = fix_default_ids(msg)
+    result = _classify_image_from_payload(msg.payload)
+    return A2AMessage(
+        sender=Sender(id="food-logger", role="assistant"),
+        conversation_id=msg.conversation_id,
+        type="response",
+        payload=result,
+    )
+
+
+# ---------------------------------------------------------------------------
+# PNP Image Classification Handler
+# ---------------------------------------------------------------------------
+
+@app.post("/pnp/classify")
+async def pnp_classify_endpoint(request: Request) -> Response:
+    """PNP endpoint for image classification."""
+    content_type = request.headers.get("Content-Type", "application/json")
+    fmt = PNPSerializer.detect_format(content_type)
+    raw = await request.body()
+    msg = PNPSerializer.deserialize(raw, fmt)
+
+    result = _classify_image_from_payload(msg.p)
+    reply = create_reply(
+        result.get("predicted_class", "unknown"), "food-logger", msg.cid,
+        extra=result,
+    )
+    resp_bytes = PNPSerializer.serialize(reply, fmt)
+    return Response(content=resp_bytes, media_type=PNPSerializer.content_type(fmt))
+
+
+# ---------------------------------------------------------------------------
+# TOON Image Classification Handler
+# ---------------------------------------------------------------------------
+
+from toon_protocol import (
+    ToonMessage, ToonSerializer,
+    create_reply as toon_create_reply,
+)
+
+
+@app.post("/toon/classify")
+async def toon_classify_endpoint(request: Request) -> Response:
+    """TOON endpoint for image classification."""
+    raw = await request.body()
+    msg = ToonSerializer.deserialize(raw)
+
+    result = _classify_image_from_payload(msg.body)
+    reply = toon_create_reply(
+        result.get("predicted_class", "unknown"), "food-logger", msg.cid,
+        extra=result,
+    )
+    resp_bytes = ToonSerializer.serialize(reply)
+    return Response(content=resp_bytes, media_type="application/json")
+
+
 @app.get("/health")
 def health() -> Dict[str, str]:
-    return {"status": "ok", "agent": "food-logger"}
+    classifier = get_classifier()
+    return {
+        "status": "ok",
+        "agent": "food-logger",
+        "ml_model_loaded": classifier.is_loaded,
+    }
 
 
 # Self-register in the dynamic agent registry
@@ -499,8 +600,8 @@ agent_registry.register(
     name="Food Logger",
     url=AGENTS["food_logger"]["url"],
     path="/food-logger",
-    description="Identifies food, logs meals with calories/macros",
-    capabilities=["log_food", "parse_food", "food_cache"],
-    protocols=["a2a", "pnp"],
-    version="1.0.0",
+    description="Identifies food, logs meals with calories/macros, classifies food images",
+    capabilities=["log_food", "parse_food", "food_cache", "classify_image"],
+    protocols=["a2a", "pnp", "toon"],
+    version="1.1.0",
 )
