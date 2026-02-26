@@ -1,0 +1,53 @@
+{
+  "benchmark": "ML Inference -- Cold Start & Latency",
+  "device": "cpu",
+  "pytorch_version": "2.10.0+cpu",
+  "num_threads": 2,
+  "iterations": 30,
+  "num_test_images": 8,
+  "avg_image_size_bytes": 17784,
+  "loading": [
+    {
+      "format": ".pth (weights)",
+      "load_time_ms": 761.45,
+      "file_size_mb": 9.21,
+      "memory_used_mb": 23.78,
+      "success": true,
+      "error": null
+    },
+    {
+      "format": ".pt (TorchScript)",
+      "load_time_ms": 1724.44,
+      "file_size_mb": 9.55,
+      "memory_used_mb": 10.31,
+      "success": true,
+      "error": null
+    }
+  ],
+  "inference": [
+    {
+      "format": ".pth (weights)",
+      "cold_start_ms": 11666.3,
+      "avg_preprocess_ms": 71.03,
+      "avg_inference_ms": 7243.24,
+      "avg_total_ms": 7314.26,
+      "p50_inference_ms": 4978.63,
+      "p95_inference_ms": 18750.41,
+      "p99_inference_ms": 41460.72,
+      "throughput_images_sec": 0.14,
+      "iterations": 30
+    },
+    {
+      "format": "TorchScript (.pt)",
+      "cold_start_ms": 4306.38,
+      "avg_preprocess_ms": 106.56,
+      "avg_inference_ms": 4438.26,
+      "avg_total_ms": 4544.81,
+      "p50_inference_ms": 3479.81,
+      "p95_inference_ms": 13484.82,
+      "p99_inference_ms": 22490.0,
+      "throughput_images_sec": 0.22,
+      "iterations": 30
+    }
+  ]
+}

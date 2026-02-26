@@ -29,6 +29,7 @@ from PIL import Image
 DEFAULT_MODEL_PATH = Path(__file__).parent / "models" / "food_classifier.pth"
 DEFAULT_TRACED_MODEL_PATH = Path(__file__).parent / "models" / "food_classifier_traced.pt"
 DEFAULT_CLASSES_PATH = Path(__file__).parent / "models" / "food_classes.json"
+DEFAULT_METADATA_PATH = Path(__file__).parent / "models" / "model_metadata.json"
 
 
 class FoodClassifier:
@@ -62,6 +63,16 @@ class FoodClassifier:
         self.input_size = 224
         self.confidence_threshold = 0.1
         self._loaded = False
+        self.metadata: Dict = {}
+
+        # Load model metadata (versioning)
+        metadata_file = Path(__file__).parent / "models" / "model_metadata.json"
+        if metadata_file.exists():
+            with open(metadata_file) as f:
+                self.metadata = json.load(f)
+            print(f"[ML] Model version: {self.metadata.get('version', 'unknown')}"
+                  f" | trained: {self.metadata.get('trained_at', 'unknown')[:10]}"
+                  f" | accuracy: {self.metadata.get('results', {}).get('best_test_accuracy', '?')}%")
 
         # Image preprocessing (must match training transforms)
         self.transform = transforms.Compose([
@@ -201,6 +212,25 @@ class FoodClassifier:
     def get_image_as_base64(self, image_bytes: bytes) -> str:
         """Encode image bytes as base64 string."""
         return base64.b64encode(image_bytes).decode("utf-8")
+
+    def get_model_info(self) -> Dict:
+        """Return model version and training metadata."""
+        if not self.metadata:
+            return {"version": "unknown", "loaded": self._loaded}
+
+        return {
+            "version": self.metadata.get("version"),
+            "model_arch": self.metadata.get("model_arch"),
+            "dataset": self.metadata.get("dataset"),
+            "num_classes": self.metadata.get("num_classes"),
+            "accuracy": self.metadata.get("results", {}).get("best_test_accuracy"),
+            "training_seed": self.metadata.get("training", {}).get("seed"),
+            "total_epochs": self.metadata.get("training", {}).get("total_epochs"),
+            "git_commit": self.metadata.get("git_commit"),
+            "trained_at": self.metadata.get("trained_at"),
+            "loaded": self._loaded,
+            "device": str(self.device),
+        }
 
 
 # ---------------------------------------------------------------------------

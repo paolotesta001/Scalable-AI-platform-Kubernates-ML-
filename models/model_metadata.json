@@ -1,0 +1,27 @@
+{
+  "version": "1.0.0",
+  "model_arch": "mobilenet_v2",
+  "dataset": "food-101",
+  "num_classes": 101,
+  "input_size": 224,
+  "trained_at": "2025-02-25T17:20:00Z",
+  "training": {
+    "seed": 42,
+    "total_epochs": 15,
+    "phase1_epochs": 5,
+    "phase2_epochs": 10,
+    "optimizer": "Adam",
+    "phase1_lr": 0.001,
+    "phase2_lr": 0.0001,
+    "batch_size": 64,
+    "platform": "Google Colab (T4 GPU)"
+  },
+  "results": {
+    "best_test_accuracy": 82.28,
+    "final_train_accuracy": 71.12,
+    "final_test_loss": 0.641,
+    "final_train_loss": 1.108,
+    "inference_time_ms": 5.28
+  },
+  "git_commit": "3e42ebf"
+}

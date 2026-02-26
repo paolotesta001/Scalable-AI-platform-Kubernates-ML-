@@ -1,0 +1,60 @@
+{
+  "benchmark": "ML Image Classification Protocol Comparison",
+  "target": "http://127.0.0.1:8001",
+  "avg_image_size_bytes": 17784,
+  "num_test_images": 8,
+  "results": [
+    {
+      "name": "A2A (HTTP+JSON)",
+      "avg_latency_ms": 9211.558,
+      "p50_latency_ms": 9345.896,
+      "p95_latency_ms": 14944.673,
+      "p99_latency_ms": 14944.673,
+      "throughput_msgs_sec": 0.11,
+      "avg_request_bytes": 24027,
+      "avg_response_bytes": 753.5,
+      "avg_serialization_us": 0,
+      "errors": 0,
+      "iterations": 10
+    },
+    {
+      "name": "PNP (HTTP+JSON)",
+      "avg_latency_ms": 4502.709,
+      "p50_latency_ms": 1776.529,
+      "p95_latency_ms": 14939.754,
+      "p99_latency_ms": 14939.754,
+      "throughput_msgs_sec": 0.22,
+      "avg_request_bytes": 23850,
+      "avg_response_bytes": 589.6,
+      "avg_serialization_us": 153.38,
+      "errors": 0,
+      "iterations": 10
+    },
+    {
+      "name": "PNP (HTTP+MsgPack)",
+      "avg_latency_ms": 7810.542,
+      "p50_latency_ms": 8147.144,
+      "p95_latency_ms": 11187.46,
+      "p99_latency_ms": 11187.46,
+      "throughput_msgs_sec": 0.13,
+      "avg_request_bytes": 23822,
+      "avg_response_bytes": 505.7,
+      "avg_serialization_us": 106.47,
+      "errors": 0,
+      "iterations": 10
+    },
+    {
+      "name": "TOON (HTTP+JSON)",
+      "avg_latency_ms": 3602.591,
+      "p50_latency_ms": 3816.938,
+      "p95_latency_ms": 5335.047,
+      "p99_latency_ms": 5335.047,
+      "throughput_msgs_sec": 0.28,
+      "avg_request_bytes": 23874,
+      "avg_response_bytes": 613.5,
+      "avg_serialization_us": 140.36,
+      "errors": 0,
+      "iterations": 10
+    }
+  ]
+}

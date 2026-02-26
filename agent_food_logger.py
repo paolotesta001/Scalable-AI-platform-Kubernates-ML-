@@ -585,7 +585,7 @@ async def toon_classify_endpoint(request: Request) -> Response:
 
 
 @app.get("/health")
-def health() -> Dict[str, str]:
+def health():
     classifier = get_classifier()
     return {
         "status": "ok",
