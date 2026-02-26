@@ -38,12 +38,23 @@ DATABASE_URL = os.getenv(
     "postgresql://nutrition_user:nutrition_pass@localhost:5433/nutrition_tracker"
 )
 
-# Individual components (used if you need them separately)
-DB_HOST = os.getenv("DB_HOST", "localhost")
-DB_PORT = int(os.getenv("DB_PORT", "5433"))
-DB_NAME = os.getenv("DB_NAME", "nutrition_tracker")
-DB_USER = os.getenv("DB_USER", "nutrition_user")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "nutrition_pass")
+# Parse DATABASE_URL into individual components (supports Render's postgres:// format)
+_db_url_env = os.getenv("DATABASE_URL", "")
+if _db_url_env and "://" in _db_url_env:
+    from urllib.parse import urlparse
+    _db_url_env = _db_url_env.replace("postgres://", "postgresql://", 1)
+    _parsed = urlparse(_db_url_env)
+    DB_HOST = os.getenv("DB_HOST", _parsed.hostname or "localhost")
+    DB_PORT = int(os.getenv("DB_PORT", str(_parsed.port or 5432)))
+    DB_NAME = os.getenv("DB_NAME", _parsed.path.lstrip("/") or "nutrition_tracker")
+    DB_USER = os.getenv("DB_USER", _parsed.username or "nutrition_user")
+    DB_PASSWORD = os.getenv("DB_PASSWORD", _parsed.password or "nutrition_pass")
+else:
+    DB_HOST = os.getenv("DB_HOST", "localhost")
+    DB_PORT = int(os.getenv("DB_PORT", "5433"))
+    DB_NAME = os.getenv("DB_NAME", "nutrition_tracker")
+    DB_USER = os.getenv("DB_USER", "nutrition_user")
+    DB_PASSWORD = os.getenv("DB_PASSWORD", "nutrition_pass")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # DEPLOYMENT MODE
@@ -61,7 +72,9 @@ DEPLOY_MODE = os.getenv("DEPLOY_MODE", "monolith")
 
 APP_PORT = int(os.getenv("APP_PORT", "8000"))
 APP_HOST = os.getenv("APP_HOST", "0.0.0.0")
-APP_BASE = f"http://{APP_HOST}:{APP_PORT}"
+# For inter-agent HTTP calls, use 127.0.0.1 (0.0.0.0 is a bind address, not reachable)
+_CALL_HOST = "127.0.0.1" if APP_HOST == "0.0.0.0" else APP_HOST
+APP_BASE = f"http://{_CALL_HOST}:{APP_PORT}"
 
 # Per-agent URLs — override with env vars for microservice / K8s mode
 ORCHESTRATOR_URL  = os.getenv("ORCHESTRATOR_URL",  APP_BASE)

@@ -19,10 +19,14 @@ import base64
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-import torch
-import torch.nn as nn
-from torchvision import transforms, models
-from PIL import Image
+try:
+    import torch
+    import torch.nn as nn
+    from torchvision import transforms, models
+    from PIL import Image
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
 
 
 # Default paths (relative to project root)
@@ -56,7 +60,6 @@ class FoodClassifier:
             use_traced:   If True, try to load TorchScript model first (faster CPU inference)
             device:       "cpu" or "cuda" (auto-detected if None)
         """
-        self.device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
         self.model = None
         self.class_names: List[str] = []
         self.num_classes = 101
@@ -64,6 +67,12 @@ class FoodClassifier:
         self.confidence_threshold = 0.1
         self._loaded = False
         self.metadata: Dict = {}
+
+        if not TORCH_AVAILABLE:
+            print("[ML] PyTorch not installed — image classification disabled")
+            return
+
+        self.device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
 
         # Load model metadata (versioning)
         metadata_file = Path(__file__).parent / "models" / "model_metadata.json"

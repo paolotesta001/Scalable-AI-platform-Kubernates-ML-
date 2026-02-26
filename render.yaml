@@ -1,0 +1,24 @@
+databases:
+  - name: nutrition-tracker-db
+    plan: free
+    databaseName: nutrition_tracker
+    user: nutrition_user
+
+services:
+  - type: web
+    name: smart-nutrition-tracker
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements-deploy.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nutrition-tracker-db
+          property: connectionString
+      - key: DEPLOY_MODE
+        value: monolith
+      - key: PNP_DEFAULT_MODE
+        value: direct

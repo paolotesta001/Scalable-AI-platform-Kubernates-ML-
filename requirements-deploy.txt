@@ -1,0 +1,26 @@
+# Smart Nutrition Tracker — Deploy Dependencies (no ML model)
+# Lightweight version for cloud deployment without PyTorch
+
+# ── Web Framework ──
+fastapi==0.115.0
+uvicorn==0.30.0
+
+# ── A2A Communication ──
+httpx==0.27.0
+pydantic==2.9.0
+
+# ── Database ──
+psycopg2-binary==2.9.9
+
+# ── LLM ──
+openai==1.45.0
+
+# ── PNP Protocol ──
+msgpack==1.0.7
+
+# ── Performance ──
+psutil==6.0.0
+
+# ── Utilities ──
+python-dotenv==1.0.0
+python-multipart==0.0.9
