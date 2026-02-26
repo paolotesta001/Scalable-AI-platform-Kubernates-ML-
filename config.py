@@ -63,6 +63,7 @@ else:
 # "microservice" = each agent is its own process/container (K8s / docker-compose)
 
 DEPLOY_MODE = os.getenv("DEPLOY_MODE", "monolith")
+PUBLIC_MODE = os.getenv("PUBLIC_MODE", "false").lower() in ("1", "true", "yes")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # AGENT REGISTRY — Configurable URLs per agent

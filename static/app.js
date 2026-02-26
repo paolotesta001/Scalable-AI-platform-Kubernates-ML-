@@ -861,7 +861,17 @@ function renderSizeChart(results, container) {
 }
 
 // ---- INIT ----
-function init() {
+async function init() {
+    // Check public mode — hide dev-only elements for public deployment
+    APP.publicMode = false;
+    try {
+        const cfg = await fetch('/api/app-config').then(r => r.json());
+        if (cfg.public_mode) {
+            APP.publicMode = true;
+            document.querySelectorAll('.dev-only').forEach(el => el.style.display = 'none');
+        }
+    } catch (e) { /* ignore — default to showing everything */ }
+
     // Navigation
     document.querySelectorAll('.nav-btn').forEach(btn =>
         btn.addEventListener('click', () => navigateTo(btn.dataset.page)));
@@ -906,13 +916,14 @@ function init() {
     document.getElementById('benchmark-load').addEventListener('click', loadBenchmark);
 
     // Welcome message
+    const welcomeExtra = APP.publicMode ? '' :
+        '\n\nSwitch between A2A, PNP, and TOON protocols using the toggle above.';
     addChatMessage('agent',
         '**Welcome to Smart Nutrition Tracker!**\n\n' +
         'I can help you with:\n' +
         '- Log food: "I had pasta and salad for lunch"\n' +
         '- Meal plans: "Plan my meals for tomorrow, high protein"\n' +
-        '- Health advice: "How am I doing with my nutrition?"\n\n' +
-        'Switch between A2A, PNP, and TOON protocols using the toggle above.');
+        '- Health advice: "How am I doing with my nutrition?"' + welcomeExtra);
 
     // Load user profile
     loadProfile();

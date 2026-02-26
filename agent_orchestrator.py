@@ -799,6 +799,13 @@ def api_delete_meal(meal_id: int):
     return resp.payload
 
 
+@app.get("/api/app-config")
+def api_app_config():
+    """Return frontend configuration (public mode hides technical sections)."""
+    from config import PUBLIC_MODE
+    return {"public_mode": PUBLIC_MODE}
+
+
 @app.get("/api/benchmark-results")
 def api_benchmark_results():
     """Return saved benchmark results."""

@@ -22,3 +22,5 @@ services:
         value: monolith
       - key: PNP_DEFAULT_MODE
         value: direct
+      - key: PUBLIC_MODE
+        value: "true"

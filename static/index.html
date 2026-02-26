@@ -17,11 +17,11 @@
                 <button class="nav-btn" data-page="dashboard">Dashboard</button>
                 <button class="nav-btn" data-page="meals">Meals</button>
                 <button class="nav-btn" data-page="profile">Profile</button>
-                <button class="nav-btn" data-page="benchmark">Benchmark</button>
+                <button class="nav-btn dev-only" data-page="benchmark">Benchmark</button>
             </nav>
         </div>
         <div class="header-right">
-            <div class="protocol-toggle">
+            <div class="protocol-toggle dev-only">
                 <span class="toggle-label">Protocol:</span>
                 <button class="toggle-btn active" data-protocol="a2a">A2A</button>
                 <button class="toggle-btn" data-protocol="pnp">PNP</button>
@@ -52,7 +52,7 @@
         <!-- DASHBOARD -->
         <section id="page-dashboard" class="page">
             <div class="dashboard-grid">
-                <div class="card">
+                <div class="card dev-only">
                     <h2>Agent Status</h2>
                     <div id="agent-status-list"></div>
                 </div>
@@ -64,11 +64,11 @@
                     <h2>Recent Meals</h2>
                     <div id="recent-meals-list"></div>
                 </div>
-                <div class="card">
+                <div class="card dev-only">
                     <h2>System Metrics</h2>
                     <div id="system-metrics"></div>
                 </div>
-                <div class="card card-full-width">
+                <div class="card card-full-width dev-only">
                     <h2>Agent Communication</h2>
                     <div class="trace-controls">
                         <button id="traces-refresh" class="btn-secondary">Refresh Traces</button>
