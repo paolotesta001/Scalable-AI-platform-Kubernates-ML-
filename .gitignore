@@ -5,6 +5,7 @@ logs/
 backups/
 *.db
 .env
+.claude/
 tempCodeRunnerFile.py
 
 # ML model weights (too large for git, retrain or download separately)
