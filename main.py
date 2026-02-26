@@ -27,6 +27,13 @@ from config import DEPLOY_MODE
 # Orchestrator becomes the root app
 from agent_orchestrator import app
 
+# Auto-create database tables on startup (safe — uses IF NOT EXISTS)
+try:
+    from database import create_tables
+    create_tables()
+except Exception as e:
+    print(f"[WARN] Could not auto-create tables: {e}")
+
 if DEPLOY_MODE == "monolith":
     # Import all agent sub-apps and mount them under path prefixes
     from agent_food_logger    import app as food_logger_app

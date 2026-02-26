@@ -27,7 +27,7 @@ import json
 from datetime import datetime, date, timezone
 from typing import Optional, Dict, List, Any
 
-from config import DATABASE_URL, DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
+from config import DATABASE_URL, DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD, DEPLOY_MODE
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -60,12 +60,17 @@ def get_connection():
     if not PG_AVAILABLE:
         raise RuntimeError("psycopg2 not installed. Run: pip install psycopg2-binary")
 
+    # Render (and most cloud providers) require SSL for PostgreSQL
+    import os
+    sslmode = os.getenv("DB_SSLMODE", "require" if os.getenv("DATABASE_URL") else "prefer")
+
     return psycopg2.connect(
         host=DB_HOST,
         port=DB_PORT,
         dbname=DB_NAME,
         user=DB_USER,
         password=DB_PASSWORD,
+        sslmode=sslmode,
     )
 
 
