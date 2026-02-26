@@ -138,10 +138,29 @@ The Food Logger agent includes an ML-powered image classification pipeline for i
 | **Architecture** | MobileNetV2 (transfer learning) |
 | **Dataset** | Food-101 (101 categories, 101K images) |
 | **Training strategy** | 2-phase: classifier head (5 epochs) + full fine-tune (10 epochs) |
+| **Test accuracy** | **82.28%** |
 | **Input size** | 224x224 RGB |
-| **Model size** | ~9 MB (.pth) |
-| **Framework** | PyTorch |
-| **Training environment** | Google Colab (T4 GPU) |
+| **Model size** | ~9.2 MB (.pth) / ~9.5 MB (.pt TorchScript) |
+| **GPU inference** | 5.28 ms (T4 GPU, Colab) |
+| **Framework** | PyTorch 2.10 |
+| **Training environment** | Google Colab (T4 GPU, ~50 min) |
+
+**Training progression (15 epochs):**
+
+| Phase | Epochs | Strategy | Result |
+|-------|--------|----------|--------|
+| Phase 1 | 1-5 | Classifier head only (backbone frozen) | 58.0% test accuracy |
+| Phase 2 | 6-15 | Full fine-tuning (all layers) | 82.28% test accuracy |
+
+**Per-class accuracy highlights:**
+
+| Easiest classes | Accuracy | Hardest classes | Accuracy |
+|----------------|----------|----------------|----------|
+| Edamame | 99.2% | Steak | 54.8% |
+| Frozen Yogurt | 94.8% | Apple Pie | 56.0% |
+| Sashimi | 94.4% | Pork Chop | 56.0% |
+| Macarons | 94.4% | Foie Gras | 59.2% |
+| French Fries | 93.2% | Ravioli | 61.6% |
 
 ### Training
 
@@ -180,15 +199,60 @@ result = classifier.classify_base64(b64_str)   # base64 string
 # }
 ```
 
-### Image Protocol Benchmarking
+### Inference Benchmark
 
-A dedicated benchmark compares how each protocol handles image payloads (50-500KB, much larger than text):
+The model ships in two formats. A dedicated benchmark (`benchmark_inference.py`) measures cold start and warm inference latency for each:
+
+**Model loading:**
+
+| Format | Load Time | Disk Size | RAM Usage |
+|--------|-----------|-----------|-----------|
+| .pth (weights) | 761 ms | 9.2 MB | ~24 MB |
+| .pt (TorchScript) | 1,724 ms | 9.5 MB | ~10 MB |
+
+**Inference latency (CPU, 2 threads, 30 iterations):**
+
+| Format | Cold Start | Avg | P50 | P95 | Throughput |
+|--------|-----------|-----|-----|-----|------------|
+| .pth (weights) | 11,666 ms | 7,243 ms | 4,979 ms | 18,750 ms | 0.14 img/s |
+| **TorchScript (.pt)** | **4,306 ms** | **4,438 ms** | **3,480 ms** | **13,485 ms** | **0.22 img/s** |
+
+TorchScript is **1.6x faster** at inference and uses **2.3x less RAM**, making it the default for deployment. Note: high absolute times are due to CPU-only execution (2 threads, no GPU). On a T4 GPU the same model does ~5 ms per image.
 
 ```bash
-python benchmark_ml.py --iterations 30 --export
+python benchmark_inference.py --iterations 100 --export
 ```
 
-This measures serialization overhead, transport latency, and total round-trip for image classification through A2A, PNP (JSON + MsgPack), and TOON. Results are automatically compared against the text-only benchmarks.
+### Image Protocol Benchmarking
+
+A dedicated benchmark (`benchmark_ml.py`) compares how each protocol handles image classification requests end-to-end (serialization + HTTP + ML inference + response):
+
+**Image payloads — Local (10 iterations, CPU inference):**
+
+| Protocol | Avg Latency | P50 | P95 | Msgs/s | Request Size |
+|----------|------------|-----|-----|--------|-------------|
+| **TOON (HTTP+JSON)** | **3,603 ms** | **3,817 ms** | **5,335 ms** | **0.28** | 23.3 KB |
+| PNP (HTTP+JSON) | 4,503 ms | 1,777 ms | 14,940 ms | 0.22 | 23.3 KB |
+| PNP (HTTP+MsgPack) | 7,811 ms | 8,147 ms | 11,188 ms | 0.13 | 23.3 KB |
+| A2A (HTTP+JSON) | 9,212 ms | 9,346 ms | 14,945 ms | 0.11 | 23.5 KB |
+
+**Image vs text overhead (same protocol, containers):**
+
+| Protocol | Text (containers) | Image (local CPU) | Overhead |
+|----------|-------------------|-------------------|----------|
+| A2A (HTTP+JSON) | 249 ms | 9,212 ms | 36.9x |
+| PNP (HTTP+JSON) | 78 ms | 4,503 ms | 57.4x |
+| TOON (HTTP+JSON) | 72 ms | 3,603 ms | 49.8x |
+
+**Important:** The image benchmark latency is dominated by ML inference (~3-7s on CPU), not protocol overhead. Protocol serialization adds only ~0.1-0.2 ms. To see meaningful protocol differences with image payloads, run on GPU-equipped hardware where inference drops to ~5 ms.
+
+```bash
+# Start the Food Logger service
+uvicorn agent_food_logger:app --port 8001
+
+# Run the benchmark
+python benchmark_ml.py --iterations 30 --export
+```
 
 ---
 
@@ -473,7 +537,7 @@ JSON-formatted logs compatible with Docker log drivers, Loki, and CloudWatch. En
 
 ## Benchmarking
 
-The project includes three benchmark suites for measuring protocol performance across different workloads and deployment modes.
+The project includes four benchmark suites for measuring performance across different workloads and deployment modes.
 
 ### 1. In-Process Benchmark (Monolith)
 
@@ -492,16 +556,24 @@ docker compose -f docker-compose.microservices.yml up --build -d
 python benchmark_containers.py --iterations 50 --export
 ```
 
-### 3. ML Image Benchmark
+### 3. ML Inference Benchmark
 
-Compares protocols with **image payloads** (50-500KB) for food classification:
+Measures pure model performance — cold start, warm inference latency, and memory usage for both model formats (.pth vs TorchScript .pt):
 
 ```bash
-# Place test food images in test_images/
+python benchmark_inference.py --iterations 100 --export
+```
+
+### 4. ML Image Protocol Benchmark
+
+Compares protocols with **image payloads** for food classification (end-to-end: serialization + HTTP + ML inference + response):
+
+```bash
+uvicorn agent_food_logger:app --port 8001
 python benchmark_ml.py --iterations 30 --export
 ```
 
-If no test images are present, the benchmark generates synthetic 224x224 JPEG images automatically.
+If no test images are present, the benchmarks generate synthetic 224x224 JPEG images automatically.
 
 **Benchmark configurations tested:**
 
@@ -514,7 +586,7 @@ If no test images are present, the benchmark generates synthetic 224x224 JPEG im
 | 5 | PNP | Direct | JSON | text only |
 | 6 | PNP | Direct | MessagePack | text only |
 
-**Metrics collected:** avg/p50/p95/p99 latency, throughput (msgs/sec), message size (bytes/KB), serialization overhead, error rate.
+**Metrics collected:** avg/p50/p95/p99 latency, throughput (msgs/sec), message size (bytes/KB), serialization overhead, memory usage, error rate.
 
 **Overall protocol rankings (containers, text payloads):**
 
@@ -525,7 +597,25 @@ If no test images are present, the benchmark generates synthetic 224x224 JPEG im
 | 3 | PNP (HTTP+MsgPack) | 79 ms | 142 ms | 12.66 msg/s |
 | 4 | A2A (HTTP+JSON) | 249 ms | 915 ms | 4.01 msg/s |
 
-The ML image benchmark additionally compares text vs image overhead per protocol, showing how larger payloads affect each protocol differently.
+**ML model format comparison (CPU, 2 threads):**
+
+| Format | Cold Start | Avg Inference | P50 | RAM Usage | Throughput |
+|--------|-----------|---------------|-----|-----------|------------|
+| TorchScript (.pt) | 4,306 ms | 4,438 ms | 3,480 ms | ~10 MB | 0.22 img/s |
+| .pth (weights) | 11,666 ms | 7,243 ms | 4,979 ms | ~24 MB | 0.14 img/s |
+
+TorchScript wins on all metrics: **1.6x faster inference**, **2.7x faster cold start**, **2.3x less RAM**.
+
+**Image classification protocol rankings (local, CPU):**
+
+| Rank | Protocol | Avg Latency | P95 | Throughput |
+|------|----------|-------------|-----|-----------|
+| 1 | TOON (HTTP+JSON) | 3,603 ms | 5,335 ms | 0.28 msg/s |
+| 2 | PNP (HTTP+JSON) | 4,503 ms | 14,940 ms | 0.22 msg/s |
+| 3 | PNP (HTTP+MsgPack) | 7,811 ms | 11,188 ms | 0.13 msg/s |
+| 4 | A2A (HTTP+JSON) | 9,212 ms | 14,945 ms | 0.11 msg/s |
+
+Note: Image benchmark latency is dominated by CPU-based ML inference (~3-7s), not protocol overhead (~0.1 ms). On GPU hardware (T4), inference drops to ~5 ms, making protocol differences visible again.
 
 ---
 
@@ -607,6 +697,7 @@ my_product/
 |   +-- test_toon.py                 # TOON protocol tests
 |   +-- benchmark.py                 # Protocol benchmark (monolith)
 |   +-- benchmark_containers.py      # Protocol benchmark (containers)
+|   +-- benchmark_inference.py       # ML model cold start & latency benchmark
 |   +-- benchmark_ml.py              # Protocol benchmark (image payloads)
 |
 +-- requirements.txt
