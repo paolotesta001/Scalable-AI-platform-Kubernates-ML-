@@ -11,7 +11,6 @@ services:
     plan: free
     buildCommand: pip install -r requirements-deploy.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
-    pythonVersion: "3.11.12"
     envVars:
       - key: GEMINI_API_KEY
         sync: false
