@@ -27,6 +27,25 @@
     --header-h: 56px;
 }
 
+[data-theme="light"] {
+    --bg-primary: #f5f6fa;
+    --bg-secondary: #ffffff;
+    --bg-card: #ffffff;
+    --bg-input: #eef0f5;
+    --bg-hover: #e4e7ed;
+    --text-primary: #1a1d27;
+    --text-secondary: #4b5563;
+    --text-muted: #9ca3af;
+    --accent: #6c63ff;
+    --accent-hover: #5b52ee;
+    --accent-glow: rgba(108, 99, 255, 0.15);
+    --success: #059669;
+    --warning: #d97706;
+    --danger: #dc2626;
+    --info: #2563eb;
+    --border: #d1d5db;
+}
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
@@ -90,6 +109,19 @@ body {
 }
 .toggle-btn:hover { border-color: var(--accent); }
 .toggle-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+.theme-toggle {
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    padding: 5px 10px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    transition: all 0.15s;
+}
+.theme-toggle:hover { border-color: var(--accent); }
 
 .user-selector { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); }
 .user-selector select {

@@ -118,6 +118,17 @@ function normalizeResponse(raw) {
     };
 }
 
+// ---- THEME ----
+function applyTheme(theme) {
+    if (theme === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light');
+        document.getElementById('theme-toggle').textContent = '\u2600';
+    } else {
+        document.documentElement.removeAttribute('data-theme');
+        document.getElementById('theme-toggle').textContent = '\u263D';
+    }
+}
+
 // ---- UTILITIES ----
 function fmt(n) { return n != null ? Number(n).toFixed(1) : '-'; }
 
@@ -871,6 +882,15 @@ async function init() {
             document.querySelectorAll('.dev-only').forEach(el => el.style.display = 'none');
         }
     } catch (e) { /* ignore — default to showing everything */ }
+
+    // Theme toggle
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    applyTheme(savedTheme);
+    document.getElementById('theme-toggle').addEventListener('click', () => {
+        const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+        applyTheme(next);
+        localStorage.setItem('theme', next);
+    });
 
     // Navigation
     document.querySelectorAll('.nav-btn').forEach(btn =>
