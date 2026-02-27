@@ -30,7 +30,10 @@ from pnp_protocol import (
 )
 from config import PNP_DEFAULT_MODE
 from fastapi import Request, Response
-from ml_food_classifier import get_classifier
+try:
+    from ml_food_classifier import get_classifier
+except (ImportError, NameError):
+    get_classifier = None
 
 
 app = FastAPI(
@@ -497,6 +500,8 @@ pnp_registry.register("food_logger", handle_pnp)
 @app.post("/classify-image")
 async def classify_image_endpoint(file: UploadFile = File(...)):
     """Classify a food image using the ML model. Returns top-5 predictions."""
+    if get_classifier is None:
+        raise HTTPException(status_code=503, detail="ML model not available (PyTorch not installed)")
     classifier = get_classifier()
     if not classifier.is_loaded:
         raise HTTPException(status_code=503, detail="ML model not loaded")
@@ -508,6 +513,8 @@ async def classify_image_endpoint(file: UploadFile = File(...)):
 
 def _classify_image_from_payload(payload: dict) -> dict:
     """Classify image from protocol payload (base64-encoded)."""
+    if get_classifier is None:
+        return {"error": True, "text": "ML model not available (PyTorch not installed)"}
     classifier = get_classifier()
     if not classifier.is_loaded:
         return {"error": True, "text": "ML model not loaded"}
@@ -586,11 +593,14 @@ async def toon_classify_endpoint(request: Request) -> Response:
 
 @app.get("/health")
 def health():
-    classifier = get_classifier()
+    ml_loaded = False
+    if get_classifier is not None:
+        classifier = get_classifier()
+        ml_loaded = classifier.is_loaded
     return {
         "status": "ok",
         "agent": "food-logger",
-        "ml_model_loaded": classifier.is_loaded,
+        "ml_model_loaded": ml_loaded,
     }
 
 
