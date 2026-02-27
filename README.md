@@ -297,10 +297,9 @@ cd my_product
 pip install -r requirements.txt
 
 # Configure environment
-cp .env.example .env
-# Edit .env and set GEMINI_API_KEY
+echo "GEMINI_API_KEY=your-gemini-api-key-here" > .env
 
-# Start PostgreSQL (must be running on localhost:5432)
+# Start PostgreSQL (must be running on localhost:5433)
 
 # Run the application
 python main.py
@@ -389,6 +388,23 @@ kubectl apply -f k8s/backup-cronjob.yaml
 **Health checks** are configured on all deployments — readiness probes at 5s intervals and liveness probes at 10s intervals, both hitting each agent's `/health` endpoint.
 
 **Service discovery** uses Kubernetes DNS: `<service>.nutrition-tracker.svc.cluster.local`.
+
+### Render
+
+The project includes a `render.yaml` Blueprint for one-click deployment to [Render](https://render.com):
+
+```bash
+# Deploy via Render Dashboard → New Blueprint Instance → connect your repo
+# Or use the Render CLI:
+render blueprint launch
+```
+
+The Blueprint provisions:
+- **Web service** — Python, free plan, runs the monolith via `uvicorn main:app`
+- **PostgreSQL database** — free plan, connection string injected automatically via `DATABASE_URL`
+- **Public mode** — `PUBLIC_MODE=true` hides dev-only UI sections (Agent Status, System Metrics, Traces)
+
+A separate `requirements-deploy.txt` is used for the Render build to keep the deployment image lightweight.
 
 ---
 
@@ -716,14 +732,15 @@ my_product/
 | `GEMINI_API_KEY` | Yes | -- | Gemini API key |
 | `DEPLOY_MODE` | No | `monolith` | `monolith` or `microservice` |
 | `PNP_DEFAULT_MODE` | No | `direct` | `direct` (in-process) or `http` |
-| `DATABASE_URL` | No | `postgresql://nutrition_user:nutrition_pass@localhost:5432/nutrition_tracker` | PostgreSQL connection string |
+| `DATABASE_URL` | No | `postgresql://nutrition_user:nutrition_pass@localhost:5433/nutrition_tracker` | PostgreSQL connection string |
 | `DB_HOST` | No | `localhost` | Database host |
-| `DB_PORT` | No | `5432` | Database port |
+| `DB_PORT` | No | `5433` | Database port |
 | `DB_NAME` | No | `nutrition_tracker` | Database name |
 | `DB_USER` | No | `nutrition_user` | Database user |
 | `DB_PASSWORD` | No | `nutrition_pass` | Database password |
 | `APP_HOST` | No | `0.0.0.0` | Server bind address |
 | `APP_PORT` | No | `8000` | Server bind port |
+| `PUBLIC_MODE` | No | `false` | Hide dev-only UI sections (for public deployments) |
 | `JSON_LOGS` | No | `false` | Enable structured JSON logging |
 | `ML_MODEL_PATH` | No | `models/food_classifier.pth` | Path to PyTorch model weights |
 | `ML_TRACED_MODEL_PATH` | No | `models/food_classifier_traced.pt` | Path to TorchScript model |
