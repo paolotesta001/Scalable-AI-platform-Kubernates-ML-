@@ -29,6 +29,12 @@ from pnp_protocol import (
 )
 from config import PNP_DEFAULT_MODE
 from fastapi import Request, Response
+from toon_protocol import (
+    ToonMessage, ToonType, ToonSerializer,
+    create_request as toon_create_request,
+    create_reply as toon_create_reply,
+    toon_transport,
+)
 
 
 app = FastAPI(
@@ -348,6 +354,127 @@ async def pnp_endpoint(request: Request) -> Response:
 pnp_registry.register("health_advisor", handle_pnp)
 
 
+# ---------------------------------------------------------------------------
+# TOON Protocol Handler
+# ---------------------------------------------------------------------------
+
+def handle_toon(msg: ToonMessage) -> ToonMessage:
+    """TOON handler for Health Advisor."""
+    if msg.kind != ToonType.QUERY:
+        return toon_create_reply("received", "health-advisor", msg.cid)
+
+    user_text = msg.body.get("text")
+    if not user_text:
+        return toon_create_reply("Missing 'text' in payload", "health-advisor", msg.cid,
+                                  extra={"error": True})
+
+    user_id = msg.body.get("user_id", 1)
+    provider = msg.body.get("model_provider", "gemini")
+    model_name = msg.body.get("model_name")
+    trace_id = msg.body.get("trace_id", "")
+
+    tracker = PerformanceTracker()
+    db_url = get_agent_url("db_writer")
+
+    # Step 1: Fetch user profile via TOON
+    profile_req = toon_create_request(
+        "Get user profile", "health-advisor", msg.cid,
+        extra={"action": "get_user", "data": {"user_id": user_id}},
+    )
+    start = time.time()
+    profile_resp = toon_transport.send_http(db_url, profile_req)
+    db_dur = (time.time() - start) * 1000
+    tracker.log_step("db_get_user", str(user_id), str(profile_resp.body), db_dur / 1000)
+    user_profile = profile_resp.body.get("result", {})
+
+    if trace_id:
+        log_execution(trace_id, "health-advisor", "db_get_user",
+                      protocol="toon",
+                      input_data={"user_id": user_id},
+                      output_data=user_profile,
+                      duration_ms=db_dur)
+
+    # Step 2: Fetch recent meals via TOON
+    meals_req = toon_create_request(
+        "Get recent meals", "health-advisor", msg.cid,
+        extra={"action": "get_meals", "data": {"user_id": user_id, "limit": 20}},
+    )
+    start = time.time()
+    meals_resp = toon_transport.send_http(db_url, meals_req)
+    db_dur = (time.time() - start) * 1000
+    tracker.log_step("db_get_meals", str(user_id), str(meals_resp.body), db_dur / 1000)
+    recent_meals = meals_resp.body.get("result", [])
+
+    if trace_id:
+        log_execution(trace_id, "health-advisor", "db_get_meals",
+                      protocol="toon",
+                      input_data={"user_id": user_id, "limit": 20},
+                      output_data={"meals_count": len(recent_meals) if recent_meals else 0},
+                      duration_ms=db_dur)
+
+    # Step 3: Fetch daily summary via TOON
+    summary_req = toon_create_request(
+        "Get daily summary", "health-advisor", msg.cid,
+        extra={"action": "get_daily_summary", "data": {"user_id": user_id}},
+    )
+    start = time.time()
+    summary_resp = toon_transport.send_http(db_url, summary_req)
+    db_dur = (time.time() - start) * 1000
+    tracker.log_step("db_get_daily_summary", str(user_id), str(summary_resp.body), db_dur / 1000)
+    daily_summary = summary_resp.body.get("result", {})
+
+    if trace_id:
+        log_execution(trace_id, "health-advisor", "db_get_daily_summary",
+                      protocol="toon",
+                      input_data={"user_id": user_id},
+                      output_data=daily_summary,
+                      duration_ms=db_dur)
+
+    # Step 4: Build context
+    context = f"User profile: {json.dumps(user_profile, default=str)}\n\n"
+    context += f"Today's nutrition summary: {json.dumps(daily_summary, default=str)}\n\n"
+    context += f"Recent meals ({len(recent_meals) if recent_meals else 0} meals):\n"
+    if recent_meals:
+        for meal in recent_meals[:10]:
+            context += (
+                f"  - {meal.get('food_name', '?')} ({meal.get('meal_type', '?')}): "
+                f"{meal.get('calories', '?')} kcal\n"
+            )
+    else:
+        context += "  No meals logged yet.\n"
+
+    # Step 5: Generate health advice via LLM
+    start = time.time()
+    advice_text = generate_advice(user_text, context, tracker, provider, model_name)
+    llm_dur = (time.time() - start) * 1000
+
+    if trace_id:
+        log_execution(trace_id, "health-advisor", "llm_generate_health_advice",
+                      protocol="toon",
+                      input_data={"text": user_text[:200]},
+                      output_data=advice_text[:500],
+                      duration_ms=llm_dur,
+                      llm_call=True, seed=LLM_SEED)
+
+    perf = tracker.get_summary()
+    tracker.print_report("Health Advisor Agent")
+
+    return toon_create_reply(
+        advice_text, "health-advisor", msg.cid,
+        extra={"agent": "health-advisor", "user_id": user_id, "error": False, "performance": perf},
+    )
+
+
+@app.post("/toon")
+async def toon_endpoint(request: Request) -> Response:
+    """TOON HTTP endpoint for health advice."""
+    raw = await request.body()
+    msg = ToonSerializer.deserialize(raw)
+    response = handle_toon(msg)
+    resp_bytes = ToonSerializer.serialize(response)
+    return Response(content=resp_bytes, media_type="application/json")
+
+
 @app.get("/health")
 def health() -> Dict[str, str]:
     return {"status": "ok", "agent": "health-advisor"}
@@ -361,6 +488,6 @@ agent_registry.register(
     path="/health-advisor",
     description="Health tips, progress tracking, nutrient alerts",
     capabilities=["health_advice", "nutrition_analysis", "progress_review"],
-    protocols=["a2a", "pnp"],
+    protocols=["a2a", "pnp", "toon"],
     version="1.0.0",
 )

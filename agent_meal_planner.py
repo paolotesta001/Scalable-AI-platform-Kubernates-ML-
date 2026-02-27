@@ -29,6 +29,12 @@ from pnp_protocol import (
 )
 from config import PNP_DEFAULT_MODE
 from fastapi import Request, Response
+from toon_protocol import (
+    ToonMessage, ToonType, ToonSerializer,
+    create_request as toon_create_request,
+    create_reply as toon_create_reply,
+    toon_transport,
+)
 
 
 app = FastAPI(
@@ -286,6 +292,95 @@ async def pnp_endpoint(request: Request) -> Response:
 pnp_registry.register("meal_planner", handle_pnp)
 
 
+# ---------------------------------------------------------------------------
+# TOON Protocol Handler
+# ---------------------------------------------------------------------------
+
+def handle_toon(msg: ToonMessage) -> ToonMessage:
+    """TOON handler for Meal Planner."""
+    if msg.kind != ToonType.QUERY:
+        return toon_create_reply("received", "meal-planner", msg.cid)
+
+    user_text = msg.body.get("text")
+    if not user_text:
+        return toon_create_reply("Missing 'text' in payload", "meal-planner", msg.cid,
+                                  extra={"error": True})
+
+    user_id = msg.body.get("user_id", 1)
+    provider = msg.body.get("model_provider", "gemini")
+    model_name = msg.body.get("model_name")
+    trace_id = msg.body.get("trace_id", "")
+
+    tracker = PerformanceTracker()
+
+    # Step 1: Fetch user profile from DB Writer via TOON
+    db_url = get_agent_url("db_writer")
+    profile_req = toon_create_request(
+        "Get user profile", "meal-planner", msg.cid,
+        extra={"action": "get_user", "data": {"user_id": user_id}},
+    )
+    start = time.time()
+    profile_resp = toon_transport.send_http(db_url, profile_req)
+    db_dur = (time.time() - start) * 1000
+    tracker.log_step("db_get_user", str(user_id), str(profile_resp.body), db_dur / 1000)
+    user_profile = profile_resp.body.get("result", {})
+
+    if trace_id:
+        log_execution(trace_id, "meal-planner", "db_get_user",
+                      protocol="toon",
+                      input_data={"user_id": user_id},
+                      output_data=user_profile,
+                      duration_ms=db_dur)
+
+    # Step 2: Build context
+    profile_context = "User profile:\n"
+    if user_profile:
+        profile_context += (
+            f"- Age: {user_profile.get('age', 'unknown')}\n"
+            f"- Weight: {user_profile.get('weight_kg', 'unknown')} kg\n"
+            f"- Height: {user_profile.get('height_cm', 'unknown')} cm\n"
+            f"- Gender: {user_profile.get('gender', 'unknown')}\n"
+            f"- Activity level: {user_profile.get('activity_level', 'moderate')}\n"
+            f"- Goal: {user_profile.get('goal', 'maintain')}\n"
+            f"- Daily calorie target: {user_profile.get('daily_cal_target', 2000)} kcal\n"
+            f"- Dietary preferences: {user_profile.get('dietary_prefs', [])}\n"
+            f"- Allergies: {user_profile.get('allergies', [])}\n"
+        )
+    else:
+        profile_context += "No profile found. Use defaults: 2000 kcal, no restrictions.\n"
+
+    # Step 3: Generate meal plan via LLM
+    start = time.time()
+    plan_text = generate_plan(user_text, profile_context, tracker, provider, model_name)
+    llm_dur = (time.time() - start) * 1000
+
+    if trace_id:
+        log_execution(trace_id, "meal-planner", "llm_generate_meal_plan",
+                      protocol="toon",
+                      input_data={"text": user_text[:200]},
+                      output_data=plan_text[:500],
+                      duration_ms=llm_dur,
+                      llm_call=True, seed=LLM_SEED)
+
+    perf = tracker.get_summary()
+    tracker.print_report("Meal Planner Agent")
+
+    return toon_create_reply(
+        plan_text, "meal-planner", msg.cid,
+        extra={"agent": "meal-planner", "user_id": user_id, "error": False, "performance": perf},
+    )
+
+
+@app.post("/toon")
+async def toon_endpoint(request: Request) -> Response:
+    """TOON HTTP endpoint for meal planning."""
+    raw = await request.body()
+    msg = ToonSerializer.deserialize(raw)
+    response = handle_toon(msg)
+    resp_bytes = ToonSerializer.serialize(response)
+    return Response(content=resp_bytes, media_type="application/json")
+
+
 @app.get("/health")
 def health() -> Dict[str, str]:
     return {"status": "ok", "agent": "meal-planner"}
@@ -299,6 +394,6 @@ agent_registry.register(
     path="/meal-planner",
     description="Creates personalized meal plans based on goals",
     capabilities=["meal_plan", "recipe_suggestion"],
-    protocols=["a2a", "pnp"],
+    protocols=["a2a", "pnp", "toon"],
     version="1.0.0",
 )

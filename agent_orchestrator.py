@@ -32,6 +32,12 @@ from pnp_protocol import (
 from config import PNP_DEFAULT_MODE
 from execution_log import generate_trace_id, log_execution
 from fastapi import Request, Response
+from toon_protocol import (
+    ToonMessage, ToonType, ToonSerializer,
+    create_request as toon_create_request,
+    create_reply as toon_create_reply,
+    toon_transport,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -596,6 +602,138 @@ async def pnp_endpoint(request: Request) -> Response:
 
 # Register in PNP registry at module load
 pnp_registry.register("orchestrator", handle_pnp)
+
+
+# ---------------------------------------------------------------------------
+# TOON Protocol — Call helpers
+# ---------------------------------------------------------------------------
+
+def call_food_logger_toon(query: str, cid: str, tracker: PerformanceTracker,
+                          user_id: int = 1, trace_id: str = None) -> str:
+    """Call Food Logger via TOON protocol with retry."""
+    print(f"[TOON] -> Food Logger: {query[:80]}...")
+
+    def _call():
+        msg = toon_create_request(query, "orchestrator", cid,
+                                   extra={"user_id": user_id, "trace_id": trace_id})
+        start = time.time()
+        resp = toon_transport.send_http(FOOD_LOGGER_URL, msg)
+        duration = time.time() - start
+        text = resp.body.get("text", "No food logged.")
+        tracker.log_step("food_logger_agent", query, text, duration)
+        print(f"[TOON] Food Logger: {len(text)} chars in {duration:.1f}s")
+        return text
+
+    text, success, retries = call_agent_with_retry("food_logger", _call, tracker, trace_id)
+    return text
+
+
+def call_meal_planner_toon(query: str, cid: str, tracker: PerformanceTracker,
+                           user_id: int = 1, trace_id: str = None) -> str:
+    """Call Meal Planner via TOON protocol with retry."""
+    print(f"[TOON] -> Meal Planner: {query[:80]}...")
+
+    def _call():
+        msg = toon_create_request(query, "orchestrator", cid,
+                                   extra={"user_id": user_id, "trace_id": trace_id})
+        start = time.time()
+        resp = toon_transport.send_http(MEAL_PLANNER_URL, msg)
+        duration = time.time() - start
+        text = resp.body.get("text", "No meal plan generated.")
+        tracker.log_step("meal_planner_agent", query, text, duration)
+        print(f"[TOON] Meal Planner: {len(text)} chars in {duration:.1f}s")
+        return text
+
+    text, success, retries = call_agent_with_retry("meal_planner", _call, tracker, trace_id)
+    return text
+
+
+def call_health_advisor_toon(query: str, cid: str, tracker: PerformanceTracker,
+                             user_id: int = 1, trace_id: str = None) -> str:
+    """Call Health Advisor via TOON protocol with retry."""
+    print(f"[TOON] -> Health Advisor: {query[:80]}...")
+
+    def _call():
+        msg = toon_create_request(query, "orchestrator", cid,
+                                   extra={"user_id": user_id, "trace_id": trace_id})
+        start = time.time()
+        resp = toon_transport.send_http(HEALTH_ADVISOR_URL, msg)
+        duration = time.time() - start
+        text = resp.body.get("text", "No health advice generated.")
+        tracker.log_step("health_advisor_agent", query, text, duration)
+        print(f"[TOON] Health Advisor: {len(text)} chars in {duration:.1f}s")
+        return text
+
+    text, success, retries = call_agent_with_retry("health_advisor", _call, tracker, trace_id)
+    return text
+
+
+# ---------------------------------------------------------------------------
+# TOON Protocol — Orchestrator handler
+# ---------------------------------------------------------------------------
+
+def handle_toon(msg: ToonMessage) -> ToonMessage:
+    """TOON handler for Orchestrator. Classifies intent, routes via TOON transport."""
+    if msg.kind != ToonType.QUERY:
+        return toon_create_reply("received", "orchestrator", msg.cid)
+
+    user_text = msg.body.get("text")
+    if not user_text:
+        return toon_create_reply("Missing 'text'", "orchestrator", msg.cid, extra={"error": True})
+
+    trace_id = msg.body.get("trace_id") or generate_trace_id()
+    user_id = msg.body.get("user_id", 1)
+    provider = msg.body.get("model_provider", "gemini")
+    model_name = msg.body.get("model_name")
+
+    tracker = PerformanceTracker()
+
+    # Classify intent (uses LLM)
+    start = time.time()
+    plan = classify_task(user_text, tracker, provider, model_name)
+    classify_dur = (time.time() - start) * 1000
+    workflow = plan.get("plan", "direct_answer")
+
+    log_execution(trace_id, "orchestrator", "classify_task",
+                  protocol="toon",
+                  input_data={"text": user_text},
+                  output_data=plan,
+                  duration_ms=classify_dur,
+                  llm_call=True, seed=LLM_SEED)
+
+    if workflow == "direct_answer":
+        answer = plan.get("direct_answer", "Could not determine workflow.")
+        answer = f"Orchestrator\n\n{answer}"
+    elif workflow == "log_food":
+        result = call_food_logger_toon(
+            plan.get("food_logger_query", user_text), msg.cid, tracker, user_id, trace_id)
+        answer = f"Food Logged\n\n{result}"
+    elif workflow == "meal_plan":
+        result = call_meal_planner_toon(
+            plan.get("meal_planner_query", user_text), msg.cid, tracker, user_id, trace_id)
+        answer = f"Meal Plan\n\n{result}"
+    elif workflow == "health_advice":
+        result = call_health_advisor_toon(
+            plan.get("health_advisor_query", user_text), msg.cid, tracker, user_id, trace_id)
+        answer = f"Health Advice\n\n{result}"
+    else:
+        answer = "Could not determine workflow. Please try rephrasing."
+
+    perf = tracker.get_summary()
+    return toon_create_reply(
+        answer, "orchestrator", msg.cid,
+        extra={"workflow": workflow, "performance": perf, "trace_id": trace_id},
+    )
+
+
+@app.post("/toon")
+async def toon_endpoint(request: Request) -> Response:
+    """TOON HTTP endpoint. Accepts JSON."""
+    raw = await request.body()
+    msg = ToonSerializer.deserialize(raw)
+    response = handle_toon(msg)
+    resp_bytes = ToonSerializer.serialize(response)
+    return Response(content=resp_bytes, media_type="application/json")
 
 
 # ---------------------------------------------------------------------------

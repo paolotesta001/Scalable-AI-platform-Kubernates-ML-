@@ -567,13 +567,46 @@ async def pnp_classify_endpoint(request: Request) -> Response:
 
 
 # ---------------------------------------------------------------------------
-# TOON Image Classification Handler
+# TOON Protocol Handler
 # ---------------------------------------------------------------------------
 
 from toon_protocol import (
-    ToonMessage, ToonSerializer,
+    ToonMessage, ToonType, ToonSerializer,
     create_reply as toon_create_reply,
 )
+
+
+def handle_toon(msg: ToonMessage) -> ToonMessage:
+    """TOON handler for Food Logger."""
+    if msg.kind != ToonType.QUERY:
+        return toon_create_reply("received", "food-logger", msg.cid)
+
+    text = msg.body.get("text")
+    if not text:
+        return toon_create_reply("Missing 'text' in payload", "food-logger", msg.cid,
+                                  extra={"error": True})
+
+    user_id = msg.body.get("user_id", 1)
+    provider = msg.body.get("model_provider", "gemini")
+    model_name = msg.body.get("model_name")
+    trace_id = msg.body.get("trace_id", "")
+
+    result = _process_food_log(text, user_id, msg.cid, provider, model_name, trace_id=trace_id)
+
+    return toon_create_reply(
+        result.get("text", ""), "food-logger", msg.cid,
+        extra={k: v for k, v in result.items() if k != "text"},
+    )
+
+
+@app.post("/toon")
+async def toon_endpoint(request: Request) -> Response:
+    """TOON HTTP endpoint for food logging."""
+    raw = await request.body()
+    msg = ToonSerializer.deserialize(raw)
+    response = handle_toon(msg)
+    resp_bytes = ToonSerializer.serialize(response)
+    return Response(content=resp_bytes, media_type="application/json")
 
 
 @app.post("/toon/classify")

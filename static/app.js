@@ -109,7 +109,7 @@ function normalizeResponse(raw) {
             performance: p.performance || {},
         };
     }
-    const p = raw.p || {};
+    const p = raw.p || raw.body || {};
     return {
         text: p.text || '',
         workflow: p.workflow || '',
