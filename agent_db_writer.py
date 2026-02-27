@@ -302,10 +302,8 @@ def health() -> Dict[str, str]:
     return {"status": "ok", "agent": "db-writer"}
 
 @app.post("/toon")
-async def toon_endpoint(request: Request) -> Response:
+def toon_endpoint(msg: ToonMessage):
     """TOON HTTP endpoint. Accepts JSON."""
-    raw = await request.body()
-    msg = ToonSerializer.deserialize(raw)
     response = handle_toon(msg)
     resp_bytes = ToonSerializer.serialize(response)
     return Response(content=resp_bytes, media_type="application/json")
