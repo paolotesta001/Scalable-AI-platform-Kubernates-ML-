@@ -71,7 +71,7 @@ PUBLIC_MODE = os.getenv("PUBLIC_MODE", "false").lower() in ("1", "true", "yes")
 # Monolith: all agents on single port (8000) via FastAPI mount
 # Microservice: each agent on its own port, resolved by env var / K8s DNS
 
-APP_PORT = int(os.getenv("APP_PORT", "8000"))
+APP_PORT = int(os.getenv("APP_PORT", os.getenv("PORT", "8000")))
 APP_HOST = os.getenv("APP_HOST", "0.0.0.0")
 # For inter-agent HTTP calls, use 127.0.0.1 (0.0.0.0 is a bind address, not reachable)
 _CALL_HOST = "127.0.0.1" if APP_HOST == "0.0.0.0" else APP_HOST
