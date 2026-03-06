@@ -282,7 +282,7 @@ python benchmark_ml.py --iterations 30 --export
 
 ### Prerequisites
 
-- Python 3.11+ (3.11 pinned for Render via `.python-version`)
+- Python 3.11+ (3.12 for Docker/local dev, 3.11 pinned for Render via `.python-version`)
 - PostgreSQL 16+
 - A Gemini API key
 - (Optional) Trained ML model files in `models/`
